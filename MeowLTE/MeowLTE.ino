@@ -44,6 +44,7 @@ uint8_t buffer[256];
 void setup()
 {
   WioLTEDac::Init(WioLTEDac::DAC1);
+  WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
 
   delay(200);
 
@@ -145,7 +146,10 @@ void loop()
   int position = 0;
   while (position < size)
   {
-    int read = myFile.read(buffer, sizeof buffer);
+    int req = size - position;
+    req = (req > sizeof buffer) ? sizeof buffer : req;
+    
+    int read = myFile.read(buffer, req);
     if (read <= 0)
     {
       break;
@@ -162,6 +166,8 @@ void loop()
 
     position += read;
   }
+
+  WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
 
   myFile.seek(offset);
 }
