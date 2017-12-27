@@ -154,7 +154,7 @@ void loop()
     const int16_t* p = (const int16_t*)&buffer[0];
     for (int index = 0; index < (read / sizeof *p); index++)
     {
-      uint16_t v = (uint16_t)(*p + 32767);
+      uint16_t v = (uint16_t)(*p + 32768);
       WioLTEDac::Write(WioLTEDac::DAC1, v >> 4);
       p++;
       delayMicroseconds(100);
