@@ -33,6 +33,8 @@ struct DataChunk {
 
 #define FILE_NAME "meow.wav"
 
+WioLTE Wio;
+
 File myFile;
 int offset = -1;
 int size = -1;
@@ -43,10 +45,14 @@ uint8_t buffer[256];
 
 void setup()
 {
+  Wio.Init();
+
+  Wio.PowerSupplyGrove(true);
+  
   WioLTEDac::Init(WioLTEDac::DAC1);
   WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
 
-  delay(200);
+  delay(500);
 
   SerialUSB.println("");
   SerialUSB.println("--- START ---------------------------------------------------");
