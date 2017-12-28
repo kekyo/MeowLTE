@@ -49,8 +49,9 @@ void setup()
 
   Wio.PowerSupplyGrove(true);
   
-  WioLTEDac::Init(WioLTEDac::DAC1);
+  WioLTEDac::Init((WioLTEDac::DACChannel)(WioLTEDac::DAC1 | WioLTEDac::DAC2));
   WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
+  WioLTEDac::Write(WioLTEDac::DAC2, ((uint16_t)65535) >> 4);
 
   delay(500);
 
@@ -149,7 +150,7 @@ void loop()
     return;
   }
 
-  int position = 0;
+  int32_t position = 0;
   while (position < size)
   {
     int req = size - position;
@@ -174,7 +175,7 @@ void loop()
   }
 
   WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
-
+ 
   myFile.seek(offset);
 }
 
