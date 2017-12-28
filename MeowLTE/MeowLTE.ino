@@ -2,6 +2,14 @@
 #include <WioLTEforArduino.h>
 #include <SD.h>		// https://github.com/Seeed-Studio/SD
 
+////////////////////////////////////////////////////////////
+
+#define FILE_NAME "meow.wav"
+#define BUFFER_LENGTH 128
+#define BUFFER_ELEMENTS 3
+
+////////////////////////////////////////////////////////////
+
 struct RiffHeader {
   uint32_t riff;
   int32_t  size;
@@ -31,17 +39,24 @@ struct DataChunk {
   //uint8_t waveformData [];
 };
 
-#define FILE_NAME "meow.wav"
+////////////////////////////////////////////////////////////
+
+#define BUFFER_SIZE (BUFFER_LENGTH * sizeof(int16_t))
 
 WioLTE Wio;
-
+HardwareTimer timer(2);
 File myFile;
+
 int offset = -1;
 int size = -1;
+int position = 0;
 
 RiffHeader header;
 FormatChunk format;
-uint8_t buffer[256];
+
+static void timer_handler();
+
+////////////////////////////////////////////////////////////
 
 void setup()
 {
@@ -99,7 +114,6 @@ void setup()
   if ((format.id != 0x20746d66)
     && (format.format != 0x0001)  // PCM
     && (format.channels != 0x0001) // Mono
-    && (format.samplerate != 11025)
     && (format.bitswidth != 16))
   {
     myFile.close();
@@ -108,17 +122,10 @@ void setup()
   }
 
   int ext = format.size + sizeof(format.id) + sizeof(format.size) - sizeof format;
-  if ((ext < 0) || (ext > sizeof buffer))
+  if (ext != 0)
   {
     myFile.close();
     SerialUSB.println("### ERROR 6 ###");
-    return;
-  }
-  
-  if (myFile.read(buffer, ext) != ext)
-  {
-    myFile.close();
-    SerialUSB.println("### ERROR 7 ###");
     return;
   }
 
@@ -126,22 +133,80 @@ void setup()
   if (myFile.read(&data, sizeof data) != sizeof data)
   {
     myFile.close();
-    SerialUSB.println("### ERROR 8 ###");
+    SerialUSB.println("### ERROR 7 ###");
     return;
   }
 
   if (data.id != 0x61746164)
   {
     myFile.close();
-    SerialUSB.println("### ERROR 9 ###");
+    SerialUSB.println("### ERROR 8 ###");
     return;
   }
 
-  offset = sizeof header + sizeof format + ext + sizeof data;
+  offset = sizeof header + sizeof format + sizeof data;
   size = data.size;
 
   SerialUSB.println(FILE_NAME":");
+
+  ////////////////////////////////////////////////
+  // Timer
+
+  uint32_t period = (uint32_t)((10000000 / format.samplerate + 5) / 20);
+  timer.setPeriod(period);
+
+  timer.setChannel1Mode(TIMER_OUTPUT_COMPARE);
+  timer.setCompare(TIMER_CH1, 1);
+  timer.attachCompare1Interrupt(timer_handler); 
+
+  timer.refresh();
+  timer.resume();
 }
+
+////////////////////////////////////////////////////////////
+
+uint8_t readElement = 0;
+uint8_t writeElement = 0;
+uint16_t writePosition = 0;
+
+int16_t buffer[BUFFER_ELEMENTS][BUFFER_LENGTH];
+uint16_t length[BUFFER_ELEMENTS];
+
+////////////////////////////////////////////////////////////
+
+uint16_t a = 0;
+
+static void timer_handler()
+{
+  /*
+  WioLTEDac::Write(WioLTEDac::DAC1, a);
+  a = a ? 0 : 0xfff;
+*/
+  if (readElement == writeElement)
+  {
+    return;
+  }
+
+  uint16_t v = (uint16_t)(buffer[writeElement][writePosition] + 32768);
+  WioLTEDac::Write(WioLTEDac::DAC1, v >> 4);
+
+  writePosition++;
+  if (writePosition < length[writeElement])
+  {
+    return;
+  }
+
+  writePosition = 0;
+
+  uint8_t nextElement = writeElement + 1;
+  if (nextElement >= BUFFER_ELEMENTS)
+  {
+    nextElement = 0;
+  }
+  writeElement = nextElement;
+}
+
+////////////////////////////////////////////////////////////
 
 void loop()
 {
@@ -150,32 +215,33 @@ void loop()
     return;
   }
 
-  int32_t position = 0;
-  while (position < size)
+  while (1)
   {
+    uint8_t nextElement = readElement + 1;
+    if (nextElement >= BUFFER_ELEMENTS)
+    {
+      nextElement = 0;
+    }
+  
+    if (nextElement == writeElement)
+    {
+      return;
+    }
+  
+    if (position >= size)
+    {
+      //WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
+      myFile.seek(offset);
+      position = 0;
+    }
+        
     int req = size - position;
-    req = (req > sizeof buffer) ? sizeof buffer : req;
+    req = (req > BUFFER_SIZE) ? BUFFER_SIZE : req;
     
-    int read = myFile.read(buffer, req);
-    if (read <= 0)
-    {
-      break;
-    }
-
-    const int16_t* p = (const int16_t*)&buffer[0];
-    for (int index = 0; index < (read / sizeof *p); index++)
-    {
-      uint16_t v = (uint16_t)(*p + 32768);
-      WioLTEDac::Write(WioLTEDac::DAC1, v >> 4);
-      p++;
-      delayMicroseconds(100);
-    }
-
-    position += read;
+    int read = myFile.read(&buffer[readElement][0], req);
+    length[readElement] = req / sizeof(uint16_t);
+    position += req;
+    
+    readElement = nextElement;
   }
-
-  WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
- 
-  myFile.seek(offset);
 }
-
