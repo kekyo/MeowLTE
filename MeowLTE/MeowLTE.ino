@@ -3,10 +3,19 @@
 #include <SD.h>		// https://github.com/Seeed-Studio/SD
 
 ////////////////////////////////////////////////////////////
+// Configuration of MeowLTE
 
-#define FILE_NAME "meow.wav"
-#define BUFFER_LENGTH 128
-#define BUFFER_ELEMENTS 3
+#define FILENAME "meow.wav"
+
+#define APN      "so-net.jp"
+#define USERNAME "nuro"
+#define PASSWORD "nuro"
+
+//#define APN      "soracom.io"
+//#define USERNAME "sora"
+//#define PASSWORD "sora"
+
+#include "ifttt_key.h"
 
 ////////////////////////////////////////////////////////////
 
@@ -41,11 +50,15 @@ struct DataChunk {
 
 ////////////////////////////////////////////////////////////
 
+#define IFTTT_MAKER_WEBHOOKS_URL "https://maker.ifttt.com/trigger/" IFTTT_MAKER_WEBHOOKS_EVENT "/with/key/" IFTTT_MAKER_WEBHOOKS_KEY
+
+#define BUFFER_LENGTH 128
+#define BUFFER_ELEMENTS 3
 #define BUFFER_SIZE (BUFFER_LENGTH * sizeof(int16_t))
 
 WioLTE Wio;
-HardwareTimer timer(2);
 File myFile;
+HardwareTimer timer(1);
 
 int offset = -1;
 int size = -1;
@@ -58,56 +71,63 @@ static void timer_handler();
 
 ////////////////////////////////////////////////////////////
 
-void setup()
+// Initialize Grove and DAC
+static bool InitializeDac()
 {
-  Wio.Init();
-
-  Wio.PowerSupplyGrove(true);
+  SerialUSB.println("### Initialize Grove and DAC.");
   
   WioLTEDac::Init((WioLTEDac::DACChannel)(WioLTEDac::DAC1 | WioLTEDac::DAC2));
   WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
-  WioLTEDac::Write(WioLTEDac::DAC2, ((uint16_t)65535) >> 4);
+  WioLTEDac::Write(WioLTEDac::DAC2, 0);
 
-  delay(500);
+  delay(100);
 
-  SerialUSB.println("");
-  SerialUSB.println("--- START ---------------------------------------------------");
+  Wio.PowerSupplyGrove(true);
 
+  delay(300);
+
+  return true;
+}
+
+// Initialize SD card and wave file
+static bool InitializeSD()
+{
   SerialUSB.println("### Initialize SD card.");
+  
   if (!SD.begin())
   {
-    SerialUSB.println("### ERROR! ###");
-    return;
+    SerialUSB.println("### ERROR 0 ###");
+    return false;
   }
 
-  SerialUSB.println("### Reading from "FILE_NAME".");
+  SerialUSB.println("### Reading from "FILENAME);
 
-  myFile = SD.open(FILE_NAME);
+  myFile = SD.open(FILENAME);
   if (!myFile)
   {
     SerialUSB.println("### ERROR 1 ###");
-    return;
+    return false;
   }
 
   if (myFile.read(&header, sizeof header) != sizeof header)
   {
     myFile.close();
     SerialUSB.println("### ERROR 2 ###");
-    return;
+    return false;
   }
 
   if ((header.riff != 0x46464952) || (header.type != 0x45564157))
   {
     myFile.close();
     SerialUSB.println("### ERROR 3 ###");
-    return;
+    return false;
   }
   
   if (myFile.read(&format, sizeof format) != sizeof format)
   {
     myFile.close();
     SerialUSB.println("### ERROR 4 ###");
-    return;
+    return false;
   }
 
   // DIRTY HACK: fmt chunk.
@@ -118,7 +138,7 @@ void setup()
   {
     myFile.close();
     SerialUSB.println("### ERROR 5 ###");
-    return;
+    return false;
   }
 
   int ext = format.size + sizeof(format.id) + sizeof(format.size) - sizeof format;
@@ -126,7 +146,7 @@ void setup()
   {
     myFile.close();
     SerialUSB.println("### ERROR 6 ###");
-    return;
+    return false;
   }
 
   DataChunk data;
@@ -134,25 +154,29 @@ void setup()
   {
     myFile.close();
     SerialUSB.println("### ERROR 7 ###");
-    return;
+    return false;
   }
 
   if (data.id != 0x61746164)
   {
     myFile.close();
     SerialUSB.println("### ERROR 8 ###");
-    return;
+    return false;
   }
 
   offset = sizeof header + sizeof format + sizeof data;
   size = data.size;
 
-  SerialUSB.println(FILE_NAME":");
+  SerialUSB.println("### Wave file ready: "FILENAME);
+  
+  return true;
+}
 
-  ////////////////////////////////////////////////
-  // Timer
+static bool InitializeTimer()
+{
+  SerialUSB.println("### Initialize timer.");
 
-  uint32_t period = (uint32_t)((10000000 / format.samplerate + 5) / 20);
+  uint32_t period = (uint32_t)((10000000 / format.samplerate + 5) / 10);
   timer.setPeriod(period);
 
   timer.setChannel1Mode(TIMER_OUTPUT_COMPARE);
@@ -161,6 +185,89 @@ void setup()
 
   timer.refresh();
   timer.resume();
+
+  return true;
+}
+
+static bool InitializeLteModem()
+{
+  SerialUSB.println("### Initialize LTE modem.");
+
+  Wio.PowerSupplyLTE(true);
+
+  for (uint8_t count1 = 0; count1 < 10; count1++)
+  {
+    delay(1000);
+
+    if (Wio.TurnOnOrReset())
+    {
+      SerialUSB.println("### Connecting to \""APN"\".");
+
+      delay(500);
+
+      for (uint8_t count2 = 0; count2 < 10; count2++)
+      {
+        if (Wio.Activate(APN, USERNAME, PASSWORD))
+        {
+          SerialUSB.println("### Connected.");
+          return true;
+        }
+
+        delay(1000);
+      }
+
+      SerialUSB.println("### ERROR 10 ###");
+      return false;
+    }
+  }
+
+  SerialUSB.println("### ERROR 9 ###");
+
+  return false;
+}
+
+////////////////////////////////////////////////
+
+void setup()
+{
+  Wio.Init();
+
+  delay(500);
+
+  SerialUSB.println("");
+  SerialUSB.println("--- START MeowLTE -------------------------------------------");
+
+  ////////////////////////////////////////////////
+  // Initialize Grove and DAC
+
+  if (InitializeDac() == false)
+  {
+    return;
+  }
+
+  ////////////////////////////////////////////////
+  // SD card and wave file
+
+  if (InitializeSD() == false)
+  {
+    return;
+  }
+  
+  ////////////////////////////////////////////////
+  // Timer
+
+  if (InitializeTimer() == false)
+  {
+    return;
+  }
+
+  ////////////////////////////////////////////////
+  // LTE modem
+
+  if (InitializeLteModem() == false)
+  {
+    return;
+  }
 }
 
 ////////////////////////////////////////////////////////////
@@ -174,14 +281,8 @@ uint16_t length[BUFFER_ELEMENTS];
 
 ////////////////////////////////////////////////////////////
 
-uint16_t a = 0;
-
 static void timer_handler()
 {
-  /*
-  WioLTEDac::Write(WioLTEDac::DAC1, a);
-  a = a ? 0 : 0xfff;
-*/
   if (readElement == writeElement)
   {
     return;
@@ -230,7 +331,6 @@ void loop()
   
     if (position >= size)
     {
-      //WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
       myFile.seek(offset);
       position = 0;
     }
