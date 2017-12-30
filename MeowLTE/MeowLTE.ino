@@ -6,16 +6,9 @@
 // Configuration of MeowLTE
 
 #define FILENAME "meow.wav"
+#define POST     "ﾆｬｰﾝ"
 
-#define APN      "so-net.jp"
-#define USERNAME "nuro"
-#define PASSWORD "nuro"
-
-//#define APN      "soracom.io"
-//#define USERNAME "sora"
-//#define PASSWORD "sora"
-
-#include "ifttt_key.h"
+#include "MeowLTEConfig.h"
 
 ////////////////////////////////////////////////////////////
 
@@ -67,7 +60,9 @@ int position = 0;
 RiffHeader header;
 FormatChunk format;
 
-static void timer_handler();
+static void TimerHandler();
+static void Meow();
+static void Post();
 
 ////////////////////////////////////////////////////////////
 
@@ -181,7 +176,7 @@ static bool InitializeTimer()
 
   timer.setChannel1Mode(TIMER_OUTPUT_COMPARE);
   timer.setCompare(TIMER_CH1, 1);
-  timer.attachCompare1Interrupt(timer_handler); 
+  timer.attachCompare1Interrupt(TimerHandler); 
 
   timer.refresh();
   timer.resume();
@@ -201,12 +196,12 @@ static bool InitializeLteModem()
 
     if (Wio.TurnOnOrReset())
     {
-      SerialUSB.println("### Connecting to \""APN"\".");
-
       delay(500);
 
       for (uint8_t count2 = 0; count2 < 10; count2++)
       {
+        SerialUSB.println("### Connecting to \""APN"\".");
+
         if (Wio.Activate(APN, USERNAME, PASSWORD))
         {
           SerialUSB.println("### Connected.");
@@ -219,6 +214,8 @@ static bool InitializeLteModem()
       SerialUSB.println("### ERROR 10 ###");
       return false;
     }
+
+    SerialUSB.println("### Modem is resetting.");
   }
 
   SerialUSB.println("### ERROR 9 ###");
@@ -232,7 +229,7 @@ void setup()
 {
   Wio.Init();
 
-  delay(500);
+  delay(200);
 
   SerialUSB.println("");
   SerialUSB.println("--- START MeowLTE -------------------------------------------");
@@ -262,26 +259,36 @@ void setup()
   }
 
   ////////////////////////////////////////////////
+  // Meow
+
+  Meow();
+
+  ////////////////////////////////////////////////
   // LTE modem
 
   if (InitializeLteModem() == false)
   {
     return;
   }
+
+  ////////////////////////////////////////////////
+  // Post
+
+  Post();
 }
 
 ////////////////////////////////////////////////////////////
 
-uint8_t readElement = 0;
-uint8_t writeElement = 0;
-uint16_t writePosition = 0;
+volatile uint8_t readElement = 0;
+volatile uint8_t writeElement = 0;
+volatile uint16_t writePosition = 0;
 
 int16_t buffer[BUFFER_ELEMENTS][BUFFER_LENGTH];
 uint16_t length[BUFFER_ELEMENTS];
 
 ////////////////////////////////////////////////////////////
 
-static void timer_handler()
+static void TimerHandler()
 {
   if (readElement == writeElement)
   {
@@ -307,15 +314,8 @@ static void timer_handler()
   writeElement = nextElement;
 }
 
-////////////////////////////////////////////////////////////
-
-void loop()
+static void Meow()
 {
-  if (offset == -1)
-  {
-    return;
-  }
-
   while (1)
   {
     uint8_t nextElement = readElement + 1;
@@ -326,13 +326,14 @@ void loop()
   
     if (nextElement == writeElement)
     {
-      return;
+      continue;
     }
   
     if (position >= size)
     {
       myFile.seek(offset);
       position = 0;
+      break;
     }
         
     int req = size - position;
@@ -345,3 +346,25 @@ void loop()
     readElement = nextElement;
   }
 }
+
+static void Post()
+{
+  SerialUSB.println("### Post.");
+
+  int status = 0;
+  if (!Wio.HttpPost(IFTTT_MAKER_WEBHOOKS_URL, "{\"value1\":\"" POST "\"}", &status))
+  {
+    SerialUSB.println("### ERROR 11 ###");
+    return;
+  }
+
+  SerialUSB.print("### Post status:");
+  SerialUSB.println(status);
+}
+
+////////////////////////////////////////////////////////////
+
+void loop()
+{
+}
+
