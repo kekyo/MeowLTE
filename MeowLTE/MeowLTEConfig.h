@@ -1,4 +1,10 @@
 
+////////////////////////////////////////////////////////////
+// Configuration of MeowLTE
+
+#define MEOW_FILENAME "meow.wav"
+#define POST     "ﾆｬｰﾝ"
+
 #define APN      "so-net.jp"
 #define USERNAME "nuro"
 #define PASSWORD "nuro"
@@ -9,4 +15,3 @@
 
 #define IFTTT_MAKER_WEBHOOKS_EVENT   "<Replace your event name>"
 #define IFTTT_MAKER_WEBHOOKS_KEY     "<Replace your key>"
-
