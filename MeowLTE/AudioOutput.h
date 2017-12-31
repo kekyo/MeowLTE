@@ -1,8 +1,5 @@
 #include <WioLTEforArduino.h>
 
-bool InitializeDac();
-bool InitializeTimer();
-
 class Pcm16Reader
 {
 public:
@@ -11,4 +8,5 @@ public:
   virtual int ReadFragment(int16_t* pBuffer, const uint16_t size) = 0;
 };
 
+bool InitializeAudio();
 void OutputPcm16Audio(Pcm16Reader& reader);

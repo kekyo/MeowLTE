@@ -10,32 +10,38 @@ WioLTE Wio;
 
 ////////////////////////////////////////////////////////////
 
+static volatile int count = 0;
+
+static void OnClicked()
+{
+  count++;
+
+  PlayMeow();
+}
+
+////////////////////////////////////////////////////////////
+
 void setup()
 {
+  SerialUSB.println("============== Start MeowLTE");
+
   Wio.Init();
 
+  Wio.PowerSupplyGrove(true);
   delay(200);
 
   ////////////////////////////////////////////////
-  // Initialize Grove and DAC
+  // Initialize Audio output.
 
-  if (InitializeDac() == false)
+  if (InitializeAudio() == false)
   {
     return;
   }
 
   ////////////////////////////////////////////////
-  // SD card and wave file
+  // SD card.
 
-  if (InitializeSD() == false)
-  {
-    return;
-  }
-  
-  ////////////////////////////////////////////////
-  // Timer
-
-  if (InitializeTimer() == false)
+  if (InitializeSDCard() == false)
   {
     return;
   }
@@ -43,25 +49,36 @@ void setup()
   ////////////////////////////////////////////////
   // Meow
 
+  count = 0;
+  attachInterrupt(WIOLTE_D38, OnClicked, RISING);
+
   PlayMeow();
 
   ////////////////////////////////////////////////
   // LTE modem
 
-  if (InitializeLteModem() == false)
+  Wio.PowerSupplyLTE(true);
+  delay(1000);
+
+  if (InitializeLTEModem() == false)
   {
     return;
   }
-
-  ////////////////////////////////////////////////
-  // Post
-
-  Post(1);
 }
 
 ////////////////////////////////////////////////////////////
 
 void loop()
 {
-}
+  while (1)
+  {
+    const int currentCount = count;
+    count = 0;
+    if (currentCount == 0)
+    {
+      break;
+    }
 
+    Post(currentCount);
+  }
+}

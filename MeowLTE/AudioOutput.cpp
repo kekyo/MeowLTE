@@ -43,33 +43,18 @@ static void TimerHandler()
   writeElement = nextElement;
 }
 
-// Initialize Grove and DAC
-bool InitializeDac()
+bool InitializeAudio()
 {
-  SerialUSB.println("### Initialize Grove and DAC.");
-
-  WioLTEDac::Init((WioLTEDac::DACChannel)(WioLTEDac::DAC1 | WioLTEDac::DAC2));
-  WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
-  WioLTEDac::Write(WioLTEDac::DAC2, 0);
-
-  delay(100);
-
-  Wio.PowerSupplyGrove(true);
-
-  delay(300);
-
-  return true;
-}
-
-bool InitializeTimer()
-{
-  SerialUSB.println("### Initialize timer.");
+  SerialUSB.println("### Initialize Audio.");
 
   timer.pause();
 
   timer.setChannel1Mode(TIMER_OUTPUT_COMPARE);
   timer.setCompare(TIMER_CH1, 1);
   timer.attachCompare1Interrupt(TimerHandler);
+
+  WioLTEDac::Init(WioLTEDac::DAC1);
+  WioLTEDac::Write(WioLTEDac::DAC1, ((uint16_t)32768) >> 4);
 
   return true;
 }

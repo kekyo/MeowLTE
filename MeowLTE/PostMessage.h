@@ -1,5 +1,5 @@
 #include <WioLTEforArduino.h>
 
-bool InitializeLteModem();
+bool InitializeLTEModem();
 
 void Post(const int count);

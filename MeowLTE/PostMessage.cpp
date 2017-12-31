@@ -9,11 +9,9 @@
 
 extern WioLTE Wio;
 
-bool InitializeLteModem()
+bool InitializeLTEModem()
 {
   SerialUSB.println("### Initialize LTE modem.");
-
-  Wio.PowerSupplyLTE(true);
 
   for (uint8_t count1 = 0; count1 < 10; count1++)
   {

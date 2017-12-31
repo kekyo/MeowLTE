@@ -1,5 +1,4 @@
 #include <WioLTEforArduino.h>
 
-bool InitializeSD();
-
+bool InitializeSDCard();
 void PlayMeow();

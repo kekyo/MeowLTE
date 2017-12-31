@@ -139,7 +139,7 @@ class WaveReader : public Pcm16Reader
 };
 
 // Initialize SD card and wave file
-bool InitializeSD()
+bool InitializeSDCard()
 {
   SerialUSB.println("### Initialize SD card.");
 
