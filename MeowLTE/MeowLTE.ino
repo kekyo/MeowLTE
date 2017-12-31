@@ -10,11 +10,13 @@ WioLTE Wio;
 
 ////////////////////////////////////////////////////////////
 
-static volatile int count = 0;
+static volatile int count = 1;
 
 static void OnClicked()
 {
   count++;
+
+  digitalWrite(WIOLTE_A5, 1);
 
   PlayMeow();
 }
@@ -24,6 +26,9 @@ static void OnClicked()
 void setup()
 {
   SerialUSB.println("============== Start MeowLTE");
+
+  pinMode(WIOLTE_A5, OUTPUT);
+  digitalWrite(WIOLTE_A5, 0);
 
   Wio.Init();
 
@@ -49,8 +54,8 @@ void setup()
   ////////////////////////////////////////////////
   // Meow
 
-  count = 0;
-  attachInterrupt(WIOLTE_D38, OnClicked, RISING);
+  count = 1;
+  attachInterrupt(WIOLTE_D39, OnClicked, RISING);
 
   PlayMeow();
 
