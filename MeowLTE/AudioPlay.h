@@ -1,4 +1,4 @@
 #include <WioLTEforArduino.h>
 
 bool InitializeSDCard();
-void PlayMeow();
+void PlayAudio(const char* pFileName);

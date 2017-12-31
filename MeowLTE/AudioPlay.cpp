@@ -1,7 +1,6 @@
 #include "AudioPlay.h"
 
 #include "AudioOutput.h"
-#include "MeowLTEConfig.h"
 
 #include <assert.h>
 #include <SD.h> // https://github.com/Seeed-Studio/SD
@@ -152,10 +151,10 @@ bool InitializeSDCard()
   return true;
 }
 
-void PlayMeow()
+void PlayAudio(const char* pFileName)
 {
   WaveReader reader;
 
-  reader.Open(MEOW_FILENAME);
+  reader.Open(pFileName);
   OutputPcm16Audio(reader);
 }

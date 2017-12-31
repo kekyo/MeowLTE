@@ -4,6 +4,8 @@
 #include "AudioPlay.h"
 #include "PostMessage.h"
 
+#include "MeowLTEConfig.h"
+
 ////////////////////////////////////////////////////////////
 
 WioLTE Wio;
@@ -18,7 +20,7 @@ static void OnClicked()
 
   digitalWrite(WIOLTE_A5, 1);
 
-  PlayMeow();
+  PlayAudio(MEOW_FILENAME);
 }
 
 ////////////////////////////////////////////////////////////
@@ -27,16 +29,19 @@ void setup()
 {
   SerialUSB.println("============== Start MeowLTE");
 
-  pinMode(WIOLTE_A5, OUTPUT);
+  pinMode(WIOLTE_A5, OUTPUT); // LED
+  pinMode(WIOLTE_D39, INPUT); // Button
+
+  // LED OFF
   digitalWrite(WIOLTE_A5, 0);
 
   Wio.Init();
 
-  Wio.PowerSupplyGrove(true);
-  delay(200);
-
   ////////////////////////////////////////////////
   // Initialize Audio output.
+
+  Wio.PowerSupplyGrove(true);
+  delay(100);
 
   if (InitializeAudio() == false)
   {
@@ -45,6 +50,9 @@ void setup()
 
   ////////////////////////////////////////////////
   // SD card.
+
+  Wio.PowerSupplySD(true);
+  delay(100);
 
   if (InitializeSDCard() == false)
   {
@@ -57,7 +65,7 @@ void setup()
   count = 1;
   attachInterrupt(WIOLTE_D39, OnClicked, RISING);
 
-  PlayMeow();
+  PlayAudio(MEOW_FILENAME);
 
   ////////////////////////////////////////////////
   // LTE modem
